@@ -1,0 +1,2 @@
+transfromers==4.51.3
+datasets==3.4.1
