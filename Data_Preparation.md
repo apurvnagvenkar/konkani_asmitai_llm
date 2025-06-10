@@ -169,11 +169,10 @@ Or visit: [https://huggingface.co/datasets/anag007/asmitai\_konkani\_gemma-3-12b
 
 ---
 
-# 📊 Dataset Distribution (To Be Filled)
+# 📊 Dataset Distribution
 
-| Dataset Name                                                        | Total Samples | Train Samples | Validation | Test |
-| ------------------------------------------------------------------- | ------------- | ------------- | ---------- | ---- |
-| asmitai\_konkani\_gemma-3-12b\_noisified\_instruction\_data         |               |      96740         |     1211       |    1202  |
-| asmitai\_konkani\_gemma-3-12b\_noisified\_alpaca\_instruction\_data |               |        138340       |    6411        |  6403    |
+| Dataset Name                                                        |  Train Samples | Validation | Test |
+| ------------------------------------------------------------------- |  ------------- | ---------- | ---- |
+| asmitai\_konkani\_gemma-3-12b\_noisified\_instruction\_data         |       96740         |     1211       |    1202  |
+| asmitai\_konkani\_gemma-3-12b\_noisified\_alpaca\_instruction\_data |         138340       |    6411        |  6403    |
 
-*Please update the table with actual dataset sizes after generation.*
