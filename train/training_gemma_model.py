@@ -7,6 +7,7 @@ from trl import SFTTrainer, SFTConfig
 from transformers import AutoTokenizer
 import argparse
 import yaml
+import wandb
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Fine-tune Konkani LLM")
@@ -54,7 +55,7 @@ tokenizer = get_chat_template(
 )
 
 dataset = load_dataset(dataset_name)
-train_dataset = dataset["test"]
+train_dataset = dataset["train"]
 valid_dataset = dataset["validation"]
 
 
@@ -128,6 +129,13 @@ trainer = train_on_responses_only(
 #
 # tokenizer.decode([tokenizer.pad_token_id if x == -100 else x for x in trainer.train_dataset[100]["labels"]]).replace(tokenizer.pad_token, " ")
 
+if "wandb" in config["sft_config"]["report_to"]:
+    wandb.init(
+        project=config.get("wandb", {}).get("project", "unsloth-gemma"),
+        name=config.get("wandb", {}).get("name", experiment_name),
+        entity=config.get("wandb", {}).get("entity", None),
+        config=config,
+    )
 
 trainer_stats = trainer.train()
 print(trainer_stats)
