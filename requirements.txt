@@ -5,3 +5,5 @@ torch==2.7.0
 trl==0.18.1
 bitsandbytes==0.42.0
 wandb
+pandas
+evaluate
