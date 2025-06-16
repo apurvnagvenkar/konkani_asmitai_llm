@@ -1,2 +1,6 @@
 transfromers==4.51.3
 datasets==3.4.1
+unsloth==2024.8
+torch==2.7.0
+trl==0.18.1
+bitsandbytes==0.42.0
