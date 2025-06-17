@@ -23,8 +23,8 @@ sft_config:
   save_steps: 500
   eval_steps: 500
   logging_steps: 500
-  num_train_epochs: 10
-  learning_rate: 2e-4
+  num_train_epochs: 5
+  learning_rate: 0.0002
   optim: "adamw_8bit"
   weight_decay: 0.01
   lr_scheduler_type: "linear"
