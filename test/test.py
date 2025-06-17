@@ -1,16 +1,18 @@
 import torch
 import pandas as pd
 from datasets import load_dataset
-from transformers import AutoTokenizer, Gemma3ForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import PeftModel
 from tqdm import tqdm
 import argparse
 
 # -------------------------
 # Parse command-line arguments
 # -------------------------
-parser = argparse.ArgumentParser(description="Generate model outputs from chat-style instructions")
+parser = argparse.ArgumentParser(description="Generate model outputs from chat-style instructions with optional PEFT")
 parser.add_argument("--dataset", type=str, required=True, help="HuggingFace dataset path")
-parser.add_argument("--model", type=str, required=True, help="Model name or path")
+parser.add_argument("--model", type=str, required=True, help="Base model name or path")
+parser.add_argument("--peft_model", type=str, default=None, help="Optional PEFT model name or path")
 parser.add_argument("--output_csv", type=str, required=True, help="Output CSV file path")
 args = parser.parse_args()
 
@@ -18,51 +20,62 @@ args = parser.parse_args()
 # Load tokenizer and model
 # -------------------------
 model_id = args.model
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = Gemma3ForCausalLM.from_pretrained(model_id).eval().to("cuda" if torch.cuda.is_available() else "cpu")
+
+tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+# Load base causal LM
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    device_map="auto" if torch.cuda.is_available() else None,
+    torch_dtype=torch.bfloat16 if torch.cuda.is_available() else None,
+    trust_remote_code=True
+)
+
+# If a PEFT model is provided, wrap the base model
+if args.peft_model:
+    peft_id = args.peft_model
+    model = PeftModel.from_pretrained(model, peft_id, device_map="auto")
+
+model.eval()
+device = next(model.parameters()).device
 
 # -------------------------
 # Load dataset
 # -------------------------
 dataset = load_dataset(args.dataset)
-test_data = dataset["test"]
+test_data = dataset.get("test", dataset[list(dataset.keys())[0]])
 
 # -------------------------
 # Process dataset
 # -------------------------
 records = []
-device = model.device
-
 for example in tqdm(test_data, desc="Generating responses"):
-    instruction = example["instruction"]
-    input_text = example["input"]
-    ground_truth_output = example["output"]
-    if input_text.strip() == "nan":
-        final_instruction = instruction
+    instruction = example.get("instruction", "")
+    input_text = example.get("input", "")
+    ground_truth_output = example.get("output", "")
+
+    # Combine instruction and input
+    if input_text and input_text.strip().lower() != "nan":
+        prompt = f"{instruction}\n{input_text}"
     else:
-        final_instruction = "%s\n %s" % (instruction, input_text)
+        prompt = instruction
 
-    # Create chat format
-    message = [
-        {
-            "role": "user",
-            "content": [{"type": "text", "text": final_instruction}],
-        }
-    ]
-
-    # Tokenize using Gemma chat template
-    inputs = tokenizer.apply_chat_template(
-        [message],
-        add_generation_prompt=True,
-        tokenize=True,
-        return_dict=True,
+    # Tokenize
+    inputs = tokenizer(
+        prompt,
         return_tensors="pt",
-    ).to(device).to(torch.bfloat16)
+        truncation=True,
+        padding=False
+    ).to(device)
+
     # Generate output
     with torch.inference_mode():
-        outputs = model.generate(**inputs, max_new_tokens=64)
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=64,
+            do_sample=False
+        )
 
-    decoded_output = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+    decoded_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     records.append({
         "instruction": instruction,
@@ -74,6 +87,7 @@ for example in tqdm(test_data, desc="Generating responses"):
 # -------------------------
 # Save to CSV
 # -------------------------
+
 df = pd.DataFrame(records)
 df.to_csv(args.output_csv, index=False)
 print(f"Saved output to {args.output_csv}")
