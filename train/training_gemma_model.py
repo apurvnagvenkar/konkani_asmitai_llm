@@ -4,7 +4,7 @@ from datasets import load_dataset
 from unsloth.chat_templates import standardize_data_formats
 from unsloth.chat_templates import train_on_responses_only
 from trl import SFTTrainer, SFTConfig
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, DataCollatorForSeq2Seq
 import argparse
 import yaml
 import wandb
@@ -34,6 +34,7 @@ model, tokenizer = FastModel.from_pretrained(
     load_in_4bit=config["train"]["load_in_4bit"],
     load_in_8bit=config["train"]["load_in_8bit"],
     full_finetuning=config["train"]["full_finetuning"],
+    dtype=None
 )
 
 model = FastModel.get_peft_model(
@@ -42,12 +43,24 @@ model = FastModel.get_peft_model(
     finetune_language_layers=True,
     finetune_attention_modules=True,
     finetune_mlp_modules=True,
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj",
+    ],
     r=config["lora"]["r"],
     lora_alpha=config["lora"]["lora_alpha"],
     lora_dropout=config["lora"]["lora_dropout"],
     bias=config["lora"]["bias"],
     random_state=config["lora"]["random_state"],
+    use_gradient_checkpointing="unsloth"
 )
+
+print(type(model))
 
 tokenizer = get_chat_template(
     tokenizer,
@@ -79,12 +92,16 @@ def formatting_prompts_func(examples):
        {"role": "assistant", "content": "%s" % output }
         ]
 
-       text = tokenizer.apply_chat_template(message, tokenize = False)
+       text = tokenizer.apply_chat_template(message, tokenize = False, add_generation_prompt = False)
        texts.append(text)
    return { "text" : texts, }
 
 train_dataset = train_dataset.map(formatting_prompts_func, batched = True)
 valid_dataset = valid_dataset.map(formatting_prompts_func, batched = True)
+
+# Use only first 10 samples for quick testing
+#train_dataset = train_dataset.select(range(200))
+#valid_dataset = valid_dataset.select(range(200))  # Optional: can use fewer/none too
 
 print(train_dataset[100]["text"])
 
@@ -94,6 +111,9 @@ trainer = SFTTrainer(
     tokenizer=tokenizer,
     train_dataset=train_dataset,
     eval_dataset=valid_dataset,
+    data_collator=DataCollatorForSeq2Seq(tokenizer=tokenizer),
+    packing=False,
+    dataset_text_field="text",
     args=SFTConfig(
         dataset_text_field="text",
         per_device_train_batch_size=config["sft_config"]["per_device_train_batch_size"],
@@ -112,7 +132,7 @@ trainer = SFTTrainer(
         dataset_num_proc=config["sft_config"]["dataset_num_proc"],
         output_dir=output_dir,
         logging_dir=logging_dir,
-        metric_fo_best_model="eval_loss"
+        metric_for_best_model="eval_loss"
     ),
 )
 
@@ -125,9 +145,9 @@ trainer = train_on_responses_only(
 
 
 
-# print(tokenizer.decode(trainer.train_dataset[100]["input_ids"]))
+print(tokenizer.decode(trainer.train_dataset[100]["input_ids"]))
 #
-# tokenizer.decode([tokenizer.pad_token_id if x == -100 else x for x in trainer.train_dataset[100]["labels"]]).replace(tokenizer.pad_token, " ")
+print(tokenizer.decode([tokenizer.pad_token_id if x == -100 else x for x in trainer.train_dataset[100]["labels"]]).replace(tokenizer.pad_token, " "))
 
 if "wandb" in config["sft_config"]["report_to"]:
     wandb.init(
