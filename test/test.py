@@ -71,6 +71,9 @@ for example in tqdm(test_data, desc="Generating responses"):
         padding=False
     ).to(device)
 
+    input_ids = inputs["input_ids"]
+    prompt_len = input_ids.shape[1]  # number of tokens in the prompt
+
     # Generate output
     with torch.inference_mode():
         outputs = model.generate(
@@ -78,15 +81,16 @@ for example in tqdm(test_data, desc="Generating responses"):
             max_new_tokens=512,
             do_sample=False
         )
+    generated_ids = outputs[0][prompt_len:]
+    model_generated_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
 
-    decoded_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    print(decoded_output)
+    print(model_generated_text)
 
     records.append({
         "instruction": instruction,
         "input": input_text,
         "output": ground_truth_output,
-        "model_output": decoded_output,
+        "model_output": model_generated_text,
     })
 
 # -------------------------
