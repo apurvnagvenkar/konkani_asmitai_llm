@@ -25,8 +25,8 @@ tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
 # Load base causal LM
 model = AutoModelForCausalLM.from_pretrained(
     model_id,
-    device_map="auto" if torch.cuda.is_available() else None,
-    torch_dtype=torch.bfloat16 if torch.cuda.is_available() else None,
+    device_map={"":0},#"auto" if torch.cuda.is_available() else None,
+    torch_dtype=torch.bfloat16,
     trust_remote_code=True
 )
 
@@ -48,7 +48,11 @@ test_data = dataset.get("test", dataset[list(dataset.keys())[0]])
 # Process dataset
 # -------------------------
 records = []
+c =0 
 for example in tqdm(test_data, desc="Generating responses"):
+    if c == 100:
+        break
+    c+=1
     instruction = example.get("instruction", "")
     input_text = example.get("input", "")
     ground_truth_output = example.get("output", "")
@@ -71,11 +75,12 @@ for example in tqdm(test_data, desc="Generating responses"):
     with torch.inference_mode():
         outputs = model.generate(
             **inputs,
-            max_new_tokens=64,
+            max_new_tokens=512,
             do_sample=False
         )
 
     decoded_output = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    print(decoded_output)
 
     records.append({
         "instruction": instruction,
