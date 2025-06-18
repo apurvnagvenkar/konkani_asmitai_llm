@@ -64,7 +64,7 @@ print(type(model))
 
 tokenizer = get_chat_template(
     tokenizer,
-    chat_template = "gemma-3",
+    chat_template = config.chat_template,
 )
 
 dataset = load_dataset(dataset_name)
@@ -155,6 +155,7 @@ if "wandb" in config["sft_config"]["report_to"]:
         name=config.get("wandb", {}).get("name", experiment_name),
         entity=config.get("wandb", {}).get("entity", None),
         config=config,
+        notes=config.get("notes", "")
     )
 
 trainer_stats = trainer.train()

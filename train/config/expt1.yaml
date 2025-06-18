@@ -2,7 +2,8 @@ model_name: "google/gemma-3-12b-it"
 dataset_name: "anag007/asmitai_konkani_gemma-3-12b_noisified_alpaca_instruction_data"
 experiment_parent_path: "experiments"
 experiment_name: "asmitai_konkani_gemma-3-12b-it.expt1"
-
+notes: "Experiment explanation"
+chat_template: "gemma-3"
 train:
   max_seq_length: 2048
   load_in_4bit: true
